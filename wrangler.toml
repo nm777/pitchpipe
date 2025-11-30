@@ -1,6 +1,9 @@
 name = "pitchpipe"
-main = "src/index.js"
+main = "dist/index.js"
 compatibility_date = "2024-01-01"
+
+[build]
+command = "npm run build"
 
 [vars]
 # No environment variables needed for this simple app

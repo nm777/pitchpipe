@@ -1,0 +1,16 @@
+{
+  "name": "pitchpipe",
+  "version": "1.0.0",
+  "description": "A web-based pitchpipe application",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "node build.js",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.0",
+    "wrangler": "^4.51.0"
+  }
+}
