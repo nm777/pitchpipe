@@ -86,11 +86,23 @@ class Pitchpipe {
         });
 
         // Resume audio context on user interaction (required by some browsers)
-        document.addEventListener('click', () => {
+        const resumeAudio = async () => {
             if (this.audioContext && this.audioContext.state === 'suspended') {
-                this.audioContext.resume();
+                try {
+                    await this.audioContext.resume();
+                    console.log('AudioContext resumed');
+                } catch (error) {
+                    console.error('Failed to resume AudioContext:', error);
+                }
             }
-        }, { once: true });
+        };
+
+        // Try to resume on first user interaction
+        document.addEventListener('click', resumeAudio, { once: true, capture: true });
+        document.addEventListener('touchstart', resumeAudio, { once: true, capture: true });
+        
+        // Also try to resume immediately after initialization
+        setTimeout(resumeAudio, 100);
     }
 
     togglePitch(pitch, button) {
@@ -103,8 +115,19 @@ class Pitchpipe {
         }
     }
 
-    playPitch(pitch, button) {
+    async playPitch(pitch, button) {
         if (!this.audioContext) return;
+
+        // Ensure audio context is running
+        if (this.audioContext.state === 'suspended') {
+            try {
+                await this.audioContext.resume();
+                console.log('AudioContext resumed in playPitch');
+            } catch (error) {
+                console.error('Failed to resume AudioContext in playPitch:', error);
+                return;
+            }
+        }
 
         console.log('Playing pitch with duration:', this.toneDuration, 'and sound type:', this.soundType);
 
