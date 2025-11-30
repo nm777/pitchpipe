@@ -118,6 +118,9 @@ class Pitchpipe {
 
         gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
         gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.05);
+        // Sustain at full volume, then fade out only in the last second
+        const sustainTime = Math.max(0.1, this.toneDuration - 1);
+        gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + sustainTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + this.toneDuration);
 
         oscillator.connect(gainNode);
@@ -253,8 +256,11 @@ class Pitchpipe {
                 filter.Q.setValueAtTime(10, this.audioContext.currentTime);
                 oscillator.connect(filter);
                 filter.connect(gainNode);
-                // Reduce gain for kazoo
+                // Reduce gain for kazoo and sustain, then fade out only in the last second
                 gainNode.gain.linearRampToValueAtTime(0.15, this.audioContext.currentTime + 0.05);
+                const kazooSustainTime = Math.max(0.1, this.toneDuration - 1);
+                gainNode.gain.linearRampToValueAtTime(0.15, this.audioContext.currentTime + kazooSustainTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + this.toneDuration);
                 break;
                 
             case 'violin':
@@ -263,6 +269,9 @@ class Pitchpipe {
                 gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
                 gainNode.gain.linearRampToValueAtTime(0.2, this.audioContext.currentTime + 0.1); // Slower attack
                 gainNode.gain.linearRampToValueAtTime(0.25, this.audioContext.currentTime + 0.2); // Slight swell
+                // Sustain at full volume, then fade out only in the last second
+                const violinSustainTime = Math.max(0.3, this.toneDuration - 1);
+                gainNode.gain.linearRampToValueAtTime(0.25, this.audioContext.currentTime + violinSustainTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + this.toneDuration);
                 // Add subtle vibrato
                 const violinVibrato = this.audioContext.createOscillator();
