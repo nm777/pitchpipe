@@ -6,8 +6,12 @@ class Pitchpipe {
         this.currentOscillators = new Map();
         this.autoPlayInterval = null;
         this.currentAutoPlayIndex = 0;
+        this.currentOctave = 4;
+        this.minOctave = 3;
+        this.maxOctave = 5;
         
-        this.pitches = pitches;
+        this.allPitches = pitches;
+        this.currentPitches = this.getPitchesForOctave(this.currentOctave);
 
         this.init();
     }
@@ -16,6 +20,7 @@ class Pitchpipe {
         this.initAudio();
         this.createPitchButtons();
         this.setupEventListeners();
+        this.updateOctaveDisplay();
     }
 
     initAudio() {
@@ -28,11 +33,15 @@ class Pitchpipe {
         }
     }
 
+    getPitchesForOctave(octave) {
+        return this.allPitches.filter(pitch => pitch.note.endsWith(octave.toString()));
+    }
+
     createPitchButtons() {
         const container = document.getElementById('pitchButtons');
         container.innerHTML = '';
 
-        this.pitches.forEach((pitch, index) => {
+        this.currentPitches.forEach((pitch, index) => {
             const button = document.createElement('button');
             button.className = 'pitch-btn';
             button.textContent = pitch.note;
@@ -53,6 +62,8 @@ class Pitchpipe {
     setupEventListeners() {
         document.getElementById('stopBtn').addEventListener('click', () => this.stopAll());
         document.getElementById('autoPlayBtn').addEventListener('click', () => this.toggleAutoPlay());
+        document.getElementById('octaveUpBtn').addEventListener('click', () => this.changeOctave(1));
+        document.getElementById('octaveDownBtn').addEventListener('click', () => this.changeOctave(-1));
 
         // Resume audio context on user interaction (required by some browsers)
         document.addEventListener('click', () => {
@@ -150,6 +161,25 @@ class Pitchpipe {
         document.getElementById('frequencyDisplay').textContent = '';
     }
 
+    changeOctave(direction) {
+        const newOctave = this.currentOctave + direction;
+        
+        if (newOctave >= this.minOctave && newOctave <= this.maxOctave) {
+            this.stopAll();
+            this.currentOctave = newOctave;
+            this.currentPitches = this.getPitchesForOctave(this.currentOctave);
+            this.currentAutoPlayIndex = 0;
+            this.createPitchButtons();
+            this.updateOctaveDisplay();
+        }
+    }
+
+    updateOctaveDisplay() {
+        document.getElementById('octaveDisplay').textContent = `Octave ${this.currentOctave}`;
+        document.getElementById('octaveUpBtn').disabled = this.currentOctave >= this.maxOctave;
+        document.getElementById('octaveDownBtn').disabled = this.currentOctave <= this.minOctave;
+    }
+
     toggleAutoPlay() {
         if (this.autoPlayInterval) {
             clearInterval(this.autoPlayInterval);
@@ -161,7 +191,7 @@ class Pitchpipe {
             document.getElementById('autoPlayBtn').textContent = 'Stop Auto';
             
             this.autoPlayInterval = setInterval(() => {
-                const pitch = this.pitches[this.currentAutoPlayIndex];
+                const pitch = this.currentPitches[this.currentAutoPlayIndex];
                 const button = document.querySelector('[data-note="' + pitch.note + '"]');
                 
                 this.playPitch(pitch, button);
@@ -170,7 +200,7 @@ class Pitchpipe {
                     this.stopPitch(pitch.note, button);
                 }, 800);
                 
-                this.currentAutoPlayIndex = (this.currentAutoPlayIndex + 1) % this.pitches.length;
+                this.currentAutoPlayIndex = (this.currentAutoPlayIndex + 1) % this.currentPitches.length;
             }, 1000);
         }
     }
