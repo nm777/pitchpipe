@@ -5,6 +5,12 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Ensure dist directory exists
+const distDir = path.join(__dirname, 'dist');
+if (!fs.existsSync(distDir)) {
+    fs.mkdirSync(distDir, { recursive: true });
+}
+
 // Read static files
 const html = fs.readFileSync(path.join(__dirname, 'src', 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(__dirname, 'src', 'styles.css'), 'utf8');
