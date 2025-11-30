@@ -9,6 +9,7 @@ class Pitchpipe {
         this.currentOctave = 4;
         this.minOctave = 3;
         this.maxOctave = 5;
+        this.toneDuration = 3; // Default 3 seconds
         
         this.allPitches = pitches;
         this.currentPitches = this.getPitchesForOctave(this.currentOctave);
@@ -64,6 +65,18 @@ class Pitchpipe {
         document.getElementById('autoPlayBtn').addEventListener('click', () => this.toggleAutoPlay());
         document.getElementById('octaveUpBtn').addEventListener('click', () => this.changeOctave(1));
         document.getElementById('octaveDownBtn').addEventListener('click', () => this.changeOctave(-1));
+        
+        const durationSlider = document.getElementById('durationSlider');
+        const durationValue = document.getElementById('durationValue');
+        
+        // Initialize display
+        durationValue.textContent = `${this.toneDuration}s`;
+        
+        durationSlider.addEventListener('input', (e) => {
+            this.toneDuration = parseInt(e.target.value);
+            durationValue.textContent = `${this.toneDuration}s`;
+            console.log('Duration changed to:', this.toneDuration);
+        });
 
         // Resume audio context on user interaction (required by some browsers)
         document.addEventListener('click', () => {
@@ -86,6 +99,8 @@ class Pitchpipe {
     playPitch(pitch, button) {
         if (!this.audioContext) return;
 
+        console.log('Playing pitch with duration:', this.toneDuration);
+
         const oscillator = this.audioContext.createOscillator();
         const gainNode = this.audioContext.createGain();
 
@@ -94,13 +109,13 @@ class Pitchpipe {
 
         gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
         gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.05);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 1.5);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + this.toneDuration);
 
         oscillator.connect(gainNode);
         gainNode.connect(this.audioContext.destination);
 
         oscillator.start(this.audioContext.currentTime);
-        oscillator.stop(this.audioContext.currentTime + 1.5);
+        oscillator.stop(this.audioContext.currentTime + this.toneDuration);
 
         oscillator.onended = () => {
             this.currentOscillators.delete(pitch.note);
@@ -198,7 +213,7 @@ class Pitchpipe {
                 
                 setTimeout(() => {
                     this.stopPitch(pitch.note, button);
-                }, 800);
+                }, this.toneDuration * 1000 * 0.5); // Stop at 50% of duration for auto-play
                 
                 this.currentAutoPlayIndex = (this.currentAutoPlayIndex + 1) % this.currentPitches.length;
             }, 1000);
