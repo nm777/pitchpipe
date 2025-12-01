@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "build": "node build.js",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "version": "node version.js",
+    "release": "npm run version && npm run build && git add . && git commit -m \"release v$(node -p \"require('./package.json').version\")\" && git push"
   },
   "devDependencies": {
     "esbuild": "^0.19.0",

@@ -34,6 +34,20 @@ h1 {
     font-weight: 300;
 }
 
+.version {
+    font-size: 0.7rem;
+    opacity: 0.6;
+    font-weight: 400;
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
 .pitch-container {
     flex: 1;
     display: flex;

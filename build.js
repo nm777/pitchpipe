@@ -11,13 +11,20 @@ if (!fs.existsSync(distDir)) {
     fs.mkdirSync(distDir, { recursive: true });
 }
 
+// Read package.json to get current version
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+const currentVersion = packageJson.version;
+
 // Read static files
 const html = fs.readFileSync(path.join(__dirname, 'src', 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(__dirname, 'src', 'styles.css'), 'utf8');
 const script = fs.readFileSync(path.join(__dirname, 'src', 'script.js'), 'utf8');
 const pitches = fs.readFileSync(path.join(__dirname, 'src', 'pitches.js'), 'utf8');
 
-// Create the bundled worker
+// Update version display in HTML
+const updatedHtml = html.replace('v1.0.0', `v${currentVersion}`);
+
+// Create bundled worker
 const workerCode = `
 export default {
   async fetch(request, env, ctx) {
@@ -31,7 +38,7 @@ export default {
       switch (path) {
         case '/':
         case '/index.html':
-          content = ${JSON.stringify(html)};
+          content = ${JSON.stringify(updatedHtml)};
           contentType = 'text/html';
           break;
         case '/styles.css':
@@ -66,4 +73,4 @@ export default {
 
 // Write the bundled worker
 fs.writeFileSync(path.join(__dirname, 'dist', 'index.js'), workerCode);
-console.log('Build complete! Output written to dist/index.js');
+console.log(`Build complete! Version ${currentVersion} written to dist/index.js`);
