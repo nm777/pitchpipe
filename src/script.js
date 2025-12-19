@@ -20,9 +20,15 @@ class Pitchpipe {
         // Create debug overlay after initialization
             setTimeout(() => {
                 this.createDebugOverlay();
+                console.log('DOM elements test:', {
+                    versionDisplay: !!document.getElementById('versionDisplay'),
+                    currentPitch: !!document.getElementById('currentPitch'),
+                    subtitle: !!document.querySelector('.subtitle'),
+                    bodyChildren: document.body.children.length
+                });
                 this.setDebugInfo('Ready');
                 this.debugLog('DEBUG: Ready');
-            }, 500);
+            }, 1000); // Increased delay for mobile
     }
 
     init() {
@@ -687,39 +693,67 @@ class Pitchpipe {
     }
 
     setDebugInfo(message) {
-        // Try multiple elements for mobile compatibility
-        const versionDisplay = document.getElementById('versionDisplay');
-        const currentPitch = document.getElementById('currentPitch');
-        const subtitle = document.querySelector('.subtitle');
+        console.log('setDebugInfo called:', message);
         
-        // Update version display
-        if (versionDisplay) {
-            versionDisplay.style.color = message.includes('ERROR') ? 'red' : 'orange';
-            versionDisplay.style.fontWeight = 'bold';
-            versionDisplay.style.fontSize = '12px';
-            versionDisplay.innerHTML = `v1.0.1 | ${message}`;
-        }
-        
-        // Also update the subtitle as a backup
-        if (subtitle) {
-            if (message.includes('ERROR')) {
-                subtitle.textContent = `AUDIO ERROR: ${message}`;
-                subtitle.style.color = 'red';
-                subtitle.style.fontWeight = 'bold';
-            } else if (message.includes('Running')) {
-                subtitle.textContent = 'Audio working ✓';
-                subtitle.style.color = 'green';
-            } else {
-                subtitle.textContent = `Audio: ${message}`;
-                subtitle.style.color = 'orange';
+        // Wait for DOM if not ready
+        const updateDOM = () => {
+            // Try multiple selectors for mobile compatibility
+            const versionDisplay = document.getElementById('versionDisplay') || document.querySelector('.version');
+            const currentPitch = document.getElementById('currentPitch') || document.querySelector('.current-pitch');
+            const subtitle = document.querySelector('.subtitle');
+            const h1 = document.querySelector('h1');
+            
+            console.log('Elements found:', {
+                versionDisplay: !!versionDisplay,
+                currentPitch: !!currentPitch,
+                subtitle: !!subtitle,
+                h1: !!h1
+            });
+            
+            // Update version display
+            if (versionDisplay) {
+                versionDisplay.style.color = message.includes('ERROR') ? 'red' : 'orange';
+                versionDisplay.style.fontWeight = 'bold';
+                versionDisplay.style.fontSize = '12px';
+                versionDisplay.innerHTML = `v1.0.1 | ${message}`;
+                console.log('Updated version display:', versionDisplay.innerHTML);
             }
-        }
+            
+            // Also update the subtitle as a backup
+            if (subtitle) {
+                if (message.includes('ERROR')) {
+                    subtitle.textContent = `AUDIO ERROR: ${message}`;
+                    subtitle.style.color = 'red';
+                    subtitle.style.fontWeight = 'bold';
+                } else if (message.includes('Running')) {
+                    subtitle.textContent = 'Audio working ✓';
+                    subtitle.style.color = 'green';
+                } else {
+                    subtitle.textContent = `Audio: ${message}`;
+                    subtitle.style.color = 'orange';
+                }
+                console.log('Updated subtitle:', subtitle.textContent);
+            }
+            
+            // Also update h1 as another backup
+            if (h1 && message.includes('ERROR')) {
+                h1.style.color = 'red';
+                h1.innerHTML = `PITCHPIPE - ${message}`;
+            }
+            
+            // Also use current pitch for critical errors
+            if (currentPitch && message.includes('ERROR')) {
+                currentPitch.textContent = 'AUDIO ERROR';
+                currentPitch.style.color = 'red';
+                currentPitch.style.fontSize = '16px';
+            }
+        };
         
-        // Also use current pitch for critical errors
-        if (currentPitch && message.includes('ERROR')) {
-            currentPitch.textContent = 'AUDIO ERROR';
-            currentPitch.style.color = 'red';
-            currentPitch.style.fontSize = '16px';
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', updateDOM);
+        } else {
+            // Use setTimeout for mobile timing issues
+            setTimeout(updateDOM, 0);
         }
     }
 }
