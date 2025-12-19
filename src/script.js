@@ -62,19 +62,19 @@ class Pitchpipe {
                 }
                 this.togglePitch(pitch, button);
             });
-            
+
             button.addEventListener('touchstart', (e) => {
                 // Mark this element as touched and clear any existing timeout
                 this.touchedElement = button;
                 if (this.touchTimeout) {
                     clearTimeout(this.touchTimeout);
                 }
-                
+
                 // Clear the touched element after a short delay
                 this.touchTimeout = setTimeout(() => {
                     this.touchedElement = null;
                 }, 500);
-                
+
                 this.togglePitch(pitch, button);
             });
 
@@ -116,23 +116,23 @@ class Pitchpipe {
                 // Audio is ready, let normal handlers process the event
                 return;
             }
-            
+
             // Prevent normal event processing while we initialize
             e.stopPropagation();
             e.preventDefault();
-            
+
             try {
                 // Create AudioContext in response to user gesture (required by iOS)
                 window.AudioContext = window.AudioContext || window.webkitAudioContext;
                 this.audioContext = new AudioContext();
-                
+
                 // Resume in same gesture (iOS requirement)
                 await this.audioContext.resume();
-                
+
                 // Remove this handler after successful initialization
                 document.removeEventListener('click', handleFirstInteraction, true);
                 document.removeEventListener('touchstart', handleFirstInteraction, true);
-                
+
                 // Now manually trigger the intended action
                 if (e.target.classList.contains('pitch-btn')) {
                     const note = e.target.dataset.note;
@@ -142,7 +142,7 @@ class Pitchpipe {
                         this.togglePitch(pitch, e.target);
                     }
                 }
-                
+
             } catch (error) {
                 console.error('Audio initialization error:', error);
             }
@@ -241,8 +241,17 @@ class Pitchpipe {
 
             if (button) {
                 button.classList.remove('playing');
-            }
         }
+    }
+
+    showError(message) {
+        const currentPitch = document.getElementById('currentPitch');
+        currentPitch.textContent = 'Error';
+        currentPitch.style.color = '#ff6b6b';
+
+        const freqDisplay = document.getElementById('frequencyDisplay');
+        freqDisplay.textContent = message;
+        freqDisplay.style.color = '#ff6b6b';
     }
 
     stopAll() {
@@ -680,70 +689,6 @@ class Pitchpipe {
         const freqDisplay = document.getElementById('frequencyDisplay');
         freqDisplay.textContent = message;
         freqDisplay.style.color = '#ff6b6b';
-    }
-
-    setDebugInfo(message) {
-        console.log('setDebugInfo called:', message);
-
-        // Wait for DOM if not ready
-        const updateDOM = () => {
-            // Try multiple selectors for mobile compatibility
-            const versionDisplay = document.getElementById('versionDisplay') || document.querySelector('.version');
-            const currentPitch = document.getElementById('currentPitch') || document.querySelector('.current-pitch');
-            const subtitle = document.querySelector('.subtitle');
-            const h1 = document.querySelector('h1');
-
-            console.log('Elements found:', {
-                versionDisplay: !!versionDisplay,
-                currentPitch: !!currentPitch,
-                subtitle: !!subtitle,
-                h1: !!h1
-            });
-
-            // Update version display
-            if (versionDisplay) {
-                versionDisplay.style.color = message.includes('ERROR') ? 'red' : 'orange';
-                versionDisplay.style.fontWeight = 'bold';
-                versionDisplay.style.fontSize = '12px';
-                versionDisplay.innerHTML = `v1.0.1 | ${message}`;
-                console.log('Updated version display:', versionDisplay.innerHTML);
-            }
-
-            // Also update the subtitle as a backup
-            if (subtitle) {
-                if (message.includes('ERROR')) {
-                    subtitle.textContent = `AUDIO ERROR: ${message}`;
-                    subtitle.style.color = 'red';
-                    subtitle.style.fontWeight = 'bold';
-                } else if (message.includes('Running')) {
-                    subtitle.textContent = 'Audio working ✓';
-                    subtitle.style.color = 'green';
-                } else {
-                    subtitle.textContent = `Audio: ${message}`;
-                    subtitle.style.color = 'orange';
-                }
-                console.log('Updated subtitle:', subtitle.textContent);
-            }
-
-            // Also update h1 as another backup
-            if (h1 && message.includes('ERROR')) {
-                h1.style.color = 'red';
-                h1.innerHTML = `PITCHPIPE - ${message}`;
-            }
-
-            // Also use current pitch for critical errors
-            if (currentPitch && message.includes('ERROR')) {
-                currentPitch.textContent = 'AUDIO ERROR';
-                currentPitch.style.color = 'red';
-                currentPitch.style.fontSize = '16px';
-            }
-        };
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', updateDOM);
-        } else {
-            updateDOM();
-        }
     }
 }
 
