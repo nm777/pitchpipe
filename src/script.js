@@ -99,20 +99,25 @@ class Pitchpipe {
         // Initialize and resume audio context on user interaction (required by iOS)
         const resumeAudio = async () => {
             try {
-                // Initialize AudioContext if not already done
-                this.initAudio();
-                this.debugLog('User interaction - AudioContext initialized');
+                if (!this.audioContext) {
+                    // Only create AudioContext now, in response to user interaction
+                    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.audioContext = new AudioContext();
+                    this.debugLog('AudioContext created on user interaction');
+                }
                 
-                if (this.audioContext && this.audioContext.state === 'suspended') {
+                if (this.audioContext.state === 'suspended') {
                     this.debugLog('Resuming from user interaction...');
                     await this.audioContext.resume();
                     this.debugLog('AudioContext resumed from user interaction');
+                    this.setDebugInfo('Audio: Running');
                     // Remove event listeners after successful resume
                     document.removeEventListener('click', resumeAudio);
                     document.removeEventListener('touchstart', resumeAudio);
                 }
             } catch (error) {
                 this.debugLog(`ERROR: ${error.message}`);
+                this.setDebugInfo('Audio: ERROR');
             }
         };
 
@@ -139,16 +144,10 @@ class Pitchpipe {
         this.debugLog(`playPitch: ${pitch.note}, AudioContext: ${this.audioContext?.state || 'null'}`);
         this.setDebugInfo(`Audio: ${this.audioContext?.state || 'null'}`);
         
-        // Initialize AudioContext if not already done
+        // AudioContext should already be created by user interaction
         if (!this.audioContext) {
-            this.initAudio();
-            this.debugLog('AudioContext created');
-            this.setDebugInfo('Audio: Created');
-        }
-        
-        if (!this.audioContext) {
-            this.debugLog('ERROR: No AudioContext');
-            this.setDebugInfo('Audio: ERROR');
+            this.debugLog('ERROR: AudioContext not created yet');
+            this.setDebugInfo('Audio: ERROR - Try Again');
             return;
         }
 
