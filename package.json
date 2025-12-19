@@ -1,6 +1,6 @@
 {
   "name": "pitchpipe",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A web-based pitchpipe application",
   "type": "module",
   "main": "src/index.js",
