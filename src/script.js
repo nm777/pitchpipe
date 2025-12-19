@@ -19,16 +19,18 @@ class Pitchpipe {
     }
 
     init() {
-        this.initAudio();
         this.createPitchButtons();
         this.setupEventListeners();
         this.updateOctaveDisplay();
+        // Don't initialize AudioContext immediately on iOS - wait for user interaction
     }
 
     initAudio() {
         try {
             window.AudioContext = window.AudioContext || window.webkitAudioContext;
-            this.audioContext = new AudioContext();
+            if (!this.audioContext) {
+                this.audioContext = new AudioContext();
+            }
         } catch (error) {
             console.error('Web Audio API not supported:', error);
             this.showError('Web Audio API not supported in this browser');
@@ -87,22 +89,25 @@ class Pitchpipe {
             this.stopAll();
         });
 
-        // Resume audio context on user interaction (required by iOS)
+        // Initialize and resume audio context on user interaction (required by iOS)
         const resumeAudio = async () => {
-            if (this.audioContext && this.audioContext.state === 'suspended') {
-                try {
+            try {
+                // Initialize AudioContext if not already done
+                this.initAudio();
+                
+                if (this.audioContext && this.audioContext.state === 'suspended') {
                     await this.audioContext.resume();
                     console.log('AudioContext resumed');
                     // Remove event listeners after successful resume
                     document.removeEventListener('click', resumeAudio);
                     document.removeEventListener('touchstart', resumeAudio);
-                } catch (error) {
-                    console.error('Failed to resume AudioContext:', error);
                 }
+            } catch (error) {
+                console.error('Failed to initialize or resume AudioContext:', error);
             }
         };
 
-        // Try to resume on any user interaction until successful
+        // Try to initialize and resume on any user interaction until successful
         document.addEventListener('click', resumeAudio, { capture: true });
         document.addEventListener('touchstart', resumeAudio, { capture: true });
     }
@@ -113,16 +118,31 @@ class Pitchpipe {
         if (this.currentOscillators.has(noteKey)) {
             this.stopPitch(noteKey, button);
         } else {
+            // Highlight button immediately for better UX
+            if (button) {
+                button.classList.add('playing');
+            }
             this.playPitch(pitch, button);
         }
     }
 
-    async     playPitch(pitch, button) {
-        if (!this.audioContext) return;
+    async playPitch(pitch, button) {
+        console.log('playPitch called for:', pitch.note, 'AudioContext state:', this.audioContext?.state);
+        
+        // Initialize AudioContext if not already done
+        if (!this.audioContext) {
+            this.initAudio();
+        }
+        
+        if (!this.audioContext) {
+            console.error('No AudioContext available');
+            return;
+        }
 
         // Ensure audio context is running
         if (this.audioContext.state === 'suspended') {
             try {
+                console.log('Attempting to resume AudioContext...');
                 await this.audioContext.resume();
                 console.log('AudioContext resumed in playPitch');
             } catch (error) {
@@ -169,9 +189,7 @@ class Pitchpipe {
 
         this.currentOscillators.set(pitch.note, { oscillator, gainNode });
 
-        if (button) {
-            button.classList.add('playing');
-        }
+        // Note: button should already be highlighted by togglePitch for immediate feedback
 
         document.getElementById('currentPitch').textContent = pitch.note;
         document.getElementById('frequencyDisplay').textContent = pitch.freq.toFixed(2) + ' Hz';
