@@ -87,24 +87,24 @@ class Pitchpipe {
             this.stopAll();
         });
 
-        // Resume audio context on user interaction (required by some browsers)
+        // Resume audio context on user interaction (required by iOS)
         const resumeAudio = async () => {
             if (this.audioContext && this.audioContext.state === 'suspended') {
                 try {
                     await this.audioContext.resume();
                     console.log('AudioContext resumed');
+                    // Remove event listeners after successful resume
+                    document.removeEventListener('click', resumeAudio);
+                    document.removeEventListener('touchstart', resumeAudio);
                 } catch (error) {
                     console.error('Failed to resume AudioContext:', error);
                 }
             }
         };
 
-        // Try to resume on first user interaction
-        document.addEventListener('click', resumeAudio, { once: true, capture: true });
-        document.addEventListener('touchstart', resumeAudio, { once: true, capture: true });
-
-        // Also try to resume immediately after initialization
-        setTimeout(resumeAudio, 100);
+        // Try to resume on any user interaction until successful
+        document.addEventListener('click', resumeAudio, { capture: true });
+        document.addEventListener('touchstart', resumeAudio, { capture: true });
     }
 
     togglePitch(pitch, button) {
