@@ -2,7 +2,12 @@ import { pitches } from './pitches.js';
 
 class Pitchpipe {
     constructor() {
+        // Create debug overlay first
+        this.createDebugOverlay();
+        this.debugLog('Debug overlay created');
+        
         this.audioContext = null;
+        this.audioInitializing = false; // Prevent race conditions
         this.currentOscillators = new Map();
         this.autoPlayInterval = null;
         this.currentAutoPlayIndex = 0;
@@ -15,20 +20,9 @@ class Pitchpipe {
         this.allPitches = pitches;
         this.currentPitches = this.getPitchesForOctave(this.currentOctave);
 
+        this.debugLog('Initializing pitchpipe...');
         this.init();
-        
-        // Create debug overlay after initialization
-            setTimeout(() => {
-                this.createDebugOverlay();
-                console.log('DOM elements test:', {
-                    versionDisplay: !!document.getElementById('versionDisplay'),
-                    currentPitch: !!document.getElementById('currentPitch'),
-                    subtitle: !!document.querySelector('.subtitle'),
-                    bodyChildren: document.body.children.length
-                });
-                this.setDebugInfo('Ready');
-                this.debugLog('DEBUG: Ready');
-            }, 1000); // Increased delay for mobile
+        this.debugLog('Pitchpipe initialized');
     }
 
     init() {
@@ -104,6 +98,14 @@ class Pitchpipe {
 
         // Initialize and resume audio context on user interaction (required by iOS)
         const resumeAudio = async () => {
+            // Prevent multiple simultaneous initializations
+            if (this.audioInitializing) {
+                this.debugLog('Audio initialization already in progress');
+                return;
+            }
+            
+            this.audioInitializing = true;
+            
             try {
                 this.setDebugInfo('User interaction detected');
                 this.debugLog('User interaction - starting audio init');
@@ -132,6 +134,8 @@ class Pitchpipe {
             } catch (error) {
                 this.debugLog(`ERROR: ${error.message}`);
                 this.setDebugInfo(`ERROR: ${error.message}`);
+            } finally {
+                this.audioInitializing = false;
             }
         };
 
@@ -158,6 +162,19 @@ class Pitchpipe {
         this.debugLog(`playPitch: ${pitch.note}, AudioContext: ${this.audioContext?.state || 'null'}`);
         this.setDebugInfo(`Audio: ${this.audioContext?.state || 'null'}`);
         
+        // Wait for audio initialization to complete if in progress
+        if (this.audioInitializing) {
+            this.debugLog('Waiting for audio initialization...');
+            this.setDebugInfo('Audio: Initializing...');
+            // Wait up to 2 seconds for initialization
+            let attempts = 0;
+            while (this.audioInitializing && attempts < 20) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            this.debugLog(`Finished waiting, audioInitializing: ${this.audioInitializing}`);
+        }
+        
         // AudioContext should already be created by user interaction
         if (!this.audioContext) {
             this.debugLog('ERROR: AudioContext not created yet');
@@ -173,6 +190,8 @@ class Pitchpipe {
                 await this.audioContext.resume();
                 this.debugLog('AudioContext resumed');
                 this.setDebugInfo('Audio: Running');
+                // Small delay to ensure AudioContext is fully ready on iOS
+                await new Promise(resolve => setTimeout(resolve, 100));
             } catch (error) {
                 this.debugLog(`ERROR: ${error.message}`);
                 this.setDebugInfo(`Audio: ERROR`);
@@ -619,16 +638,16 @@ class Pitchpipe {
 
     createDebugOverlay() {
         console.log('Creating debug overlay...');
-        
+
         // Wait for DOM to be ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => this.createDebugOverlay());
             return;
         }
-        
+
         const debugDiv = document.createElement('div');
         debugDiv.id = 'debugOverlay';
-        
+
         // Use individual style assignments for better mobile compatibility
         debugDiv.style.position = 'fixed';
         debugDiv.style.top = '5px';
@@ -646,7 +665,7 @@ class Pitchpipe {
         debugDiv.style.lineHeight = '1.2';
         debugDiv.style.webkitTransform = 'translateZ(0)'; // Force hardware acceleration
         debugDiv.style.pointerEvents = 'none'; // Don't interfere with touches
-        
+
         // Try to append to body
         try {
             document.body.appendChild(debugDiv);
@@ -654,7 +673,7 @@ class Pitchpipe {
         } catch (error) {
             console.error('Failed to append debug overlay:', error);
         }
-        
+
         // Make sure it's actually in the DOM
         setTimeout(() => {
             const element = document.getElementById('debugOverlay');
@@ -664,7 +683,7 @@ class Pitchpipe {
                 console.log('Debug overlay rect:', rect);
             }
         }, 100);
-        
+
         this.debugLog = (message) => {
             console.log('DEBUG:', message);
             const debugDiv = document.getElementById('debugOverlay');
@@ -694,7 +713,7 @@ class Pitchpipe {
 
     setDebugInfo(message) {
         console.log('setDebugInfo called:', message);
-        
+
         // Wait for DOM if not ready
         const updateDOM = () => {
             // Try multiple selectors for mobile compatibility
@@ -702,14 +721,14 @@ class Pitchpipe {
             const currentPitch = document.getElementById('currentPitch') || document.querySelector('.current-pitch');
             const subtitle = document.querySelector('.subtitle');
             const h1 = document.querySelector('h1');
-            
+
             console.log('Elements found:', {
                 versionDisplay: !!versionDisplay,
                 currentPitch: !!currentPitch,
                 subtitle: !!subtitle,
                 h1: !!h1
             });
-            
+
             // Update version display
             if (versionDisplay) {
                 versionDisplay.style.color = message.includes('ERROR') ? 'red' : 'orange';
@@ -718,7 +737,7 @@ class Pitchpipe {
                 versionDisplay.innerHTML = `v1.0.1 | ${message}`;
                 console.log('Updated version display:', versionDisplay.innerHTML);
             }
-            
+
             // Also update the subtitle as a backup
             if (subtitle) {
                 if (message.includes('ERROR')) {
@@ -734,13 +753,13 @@ class Pitchpipe {
                 }
                 console.log('Updated subtitle:', subtitle.textContent);
             }
-            
+
             // Also update h1 as another backup
             if (h1 && message.includes('ERROR')) {
                 h1.style.color = 'red';
                 h1.innerHTML = `PITCHPIPE - ${message}`;
             }
-            
+
             // Also use current pitch for critical errors
             if (currentPitch && message.includes('ERROR')) {
                 currentPitch.textContent = 'AUDIO ERROR';
@@ -748,12 +767,11 @@ class Pitchpipe {
                 currentPitch.style.fontSize = '16px';
             }
         };
-        
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', updateDOM);
         } else {
-            // Use setTimeout for mobile timing issues
-            setTimeout(updateDOM, 0);
+            updateDOM();
         }
     }
 }
