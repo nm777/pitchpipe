@@ -11,7 +11,7 @@ class Pitchpipe {
         this.maxOctave = 5;
         this.toneDuration = 3; // Default 3 seconds
         this.soundType = 'bells'; // Default sound type
-        
+
         this.allPitches = pitches;
         this.currentPitches = this.getPitchesForOctave(this.currentOctave);
 
@@ -50,13 +50,13 @@ class Pitchpipe {
             button.dataset.note = pitch.note;
             button.dataset.freq = pitch.freq;
             button.dataset.index = index;
-            
+
             button.addEventListener('click', () => this.togglePitch(pitch, button));
             button.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 this.togglePitch(pitch, button);
             });
-            
+
             container.appendChild(button);
         });
     }
@@ -66,13 +66,13 @@ class Pitchpipe {
         document.getElementById('autoPlayBtn').addEventListener('click', () => this.toggleAutoPlay());
         document.getElementById('octaveUpBtn').addEventListener('click', () => this.changeOctave(1));
         document.getElementById('octaveDownBtn').addEventListener('click', () => this.changeOctave(-1));
-        
+
         const durationSlider = document.getElementById('durationSlider');
         const durationValue = document.getElementById('durationValue');
-        
+
         // Initialize display
         durationValue.textContent = `${this.toneDuration}s`;
-        
+
         durationSlider.addEventListener('input', (e) => {
             this.toneDuration = parseInt(e.target.value);
             durationValue.textContent = `${this.toneDuration}s`;
@@ -83,6 +83,8 @@ class Pitchpipe {
         soundSelector.addEventListener('change', (e) => {
             this.soundType = e.target.value;
             console.log('Sound type changed to:', this.soundType);
+            // Stop all currently playing notes to apply new sound type
+            this.stopAll();
         });
 
         // Resume audio context on user interaction (required by some browsers)
@@ -100,14 +102,14 @@ class Pitchpipe {
         // Try to resume on first user interaction
         document.addEventListener('click', resumeAudio, { once: true, capture: true });
         document.addEventListener('touchstart', resumeAudio, { once: true, capture: true });
-        
+
         // Also try to resume immediately after initialization
         setTimeout(resumeAudio, 100);
     }
 
     togglePitch(pitch, button) {
         const noteKey = pitch.note;
-        
+
         if (this.currentOscillators.has(noteKey)) {
             this.stopPitch(noteKey, button);
         } else {
@@ -115,7 +117,7 @@ class Pitchpipe {
         }
     }
 
-    async playPitch(pitch, button) {
+    async     playPitch(pitch, button) {
         if (!this.audioContext) return;
 
         // Ensure audio context is running
@@ -130,14 +132,19 @@ class Pitchpipe {
         }
 
         console.log('Playing pitch with duration:', this.toneDuration, 'and sound type:', this.soundType);
+        console.log('Current soundType value:', this.soundType);
 
         const oscillator = this.audioContext.createOscillator();
         const gainNode = this.audioContext.createGain();
 
-        // Set oscillator type and characteristics based on sound type
-        this.setSoundType(oscillator, gainNode);
-        
         oscillator.frequency.setValueAtTime(pitch.freq, this.audioContext.currentTime);
+
+        // Connect oscillator to gainNode first
+        oscillator.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+
+        // Set oscillator type and characteristics based on sound type
+        this.setSoundType(oscillator, gainNode, pitch);
 
         gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
         gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.05);
@@ -145,9 +152,6 @@ class Pitchpipe {
         const sustainTime = Math.max(0.1, this.toneDuration - 1);
         gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + sustainTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + this.toneDuration);
-
-        oscillator.connect(gainNode);
-        gainNode.connect(this.audioContext.destination);
 
         oscillator.start(this.audioContext.currentTime);
         oscillator.stop(this.audioContext.currentTime + this.toneDuration);
@@ -164,7 +168,7 @@ class Pitchpipe {
         };
 
         this.currentOscillators.set(pitch.note, { oscillator, gainNode });
-        
+
         if (button) {
             button.classList.add('playing');
         }
@@ -177,9 +181,9 @@ class Pitchpipe {
         const oscData = this.currentOscillators.get(note);
         if (oscData && this.audioContext) {
             const { oscillator, gainNode } = oscData;
-            
+
             gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
-            
+
             setTimeout(() => {
                 try {
                     oscillator.stop();
@@ -187,9 +191,9 @@ class Pitchpipe {
                     // Oscillator might have already stopped
                 }
             }, 100);
-            
+
             this.currentOscillators.delete(note);
-            
+
             if (button) {
                 button.classList.remove('playing');
             }
@@ -200,20 +204,20 @@ class Pitchpipe {
         this.currentOscillators.forEach((oscData, note) => {
             this.stopPitch(note);
         });
-        
+
         if (this.autoPlayInterval) {
             clearInterval(this.autoPlayInterval);
             this.autoPlayInterval = null;
             document.getElementById('autoPlayBtn').textContent = 'Auto Play';
         }
-        
+
         document.getElementById('currentPitch').textContent = 'Ready';
         document.getElementById('frequencyDisplay').textContent = '';
     }
 
     changeOctave(direction) {
         const newOctave = this.currentOctave + direction;
-        
+
         if (newOctave >= this.minOctave && newOctave <= this.maxOctave) {
             this.stopAll();
             this.currentOctave = newOctave;
@@ -239,23 +243,32 @@ class Pitchpipe {
         } else {
             this.stopAll();
             document.getElementById('autoPlayBtn').textContent = 'Stop Auto';
-            
+
             this.autoPlayInterval = setInterval(() => {
                 const pitch = this.currentPitches[this.currentAutoPlayIndex];
                 const button = document.querySelector('[data-note="' + pitch.note + '"]');
-                
+
                 this.playPitch(pitch, button);
-                
+
                 setTimeout(() => {
                     this.stopPitch(pitch.note, button);
                 }, this.toneDuration * 1000 * 0.5); // Stop at 50% of duration for auto-play
-                
+
                 this.currentAutoPlayIndex = (this.currentAutoPlayIndex + 1) % this.currentPitches.length;
             }, 1000);
         }
     }
 
-    setSoundType(oscillator, gainNode) {
+    setSoundType(oscillator, gainNode, pitch) {
+        console.log('setSoundType called with soundType:', this.soundType);
+
+        // Helper function to disconnect default connection and create new one
+        const connectWithFilter = (oscillator, filter, gainNode) => {
+            try { oscillator.disconnect(); } catch(e) {}
+            oscillator.connect(filter);
+            filter.connect(gainNode);
+        };
+
         switch (this.soundType) {
             case 'bells':
                 oscillator.type = 'sine';
@@ -269,10 +282,11 @@ class Pitchpipe {
                 vibrato.start();
                 vibrato.stop(this.audioContext.currentTime + this.toneDuration);
                 break;
-                
+
             case 'kazoo':
                 oscillator.type = 'sawtooth';
-                // Add a filter for kazoo-like buzz
+                // Disconnect default connection and add a filter for kazoo-like buzz
+                try { oscillator.disconnect(); } catch(e) {}
                 const kazooFilter = this.audioContext.createBiquadFilter();
                 kazooFilter.type = 'bandpass';
                 kazooFilter.frequency.setValueAtTime(800, this.audioContext.currentTime);
@@ -285,7 +299,7 @@ class Pitchpipe {
                 gainNode.gain.linearRampToValueAtTime(0.15, this.audioContext.currentTime + kazooSustainTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + this.toneDuration);
                 break;
-                
+
             case 'violin':
                 oscillator.type = 'triangle';
                 // Add envelope for violin-like attack
@@ -310,7 +324,8 @@ class Pitchpipe {
             // Woodwind Instruments
             case 'flute':
                 oscillator.type = 'triangle';
-                // High-pass filter for breathy quality
+                // Disconnect default connection and add high-pass filter for breathy quality
+                try { oscillator.disconnect(); } catch(e) {}
                 const fluteFilter = this.audioContext.createBiquadFilter();
                 fluteFilter.type = 'highpass';
                 fluteFilter.frequency.setValueAtTime(1000, this.audioContext.currentTime);
@@ -335,6 +350,7 @@ class Pitchpipe {
             case 'clarinet':
                 oscillator.type = 'sawtooth';
                 // Formant filters for reed quality
+                try { oscillator.disconnect(); } catch(e) {}
                 const clarinetFilter1 = this.audioContext.createBiquadFilter();
                 clarinetFilter1.type = 'bandpass';
                 clarinetFilter1.frequency.setValueAtTime(1500, this.audioContext.currentTime);
@@ -351,6 +367,7 @@ class Pitchpipe {
             case 'saxophone':
                 oscillator.type = 'sawtooth';
                 // Rich harmonics with bandpass
+                try { oscillator.disconnect(); } catch(e) {}
                 const saxFilter = this.audioContext.createBiquadFilter();
                 saxFilter.type = 'bandpass';
                 saxFilter.frequency.setValueAtTime(1200, this.audioContext.currentTime);
@@ -372,6 +389,7 @@ class Pitchpipe {
             case 'trumpet':
                 oscillator.type = 'square';
                 // Bright harmonics with mute-like filtering
+                try { oscillator.disconnect(); } catch(e) {}
                 const trumpetFilter = this.audioContext.createBiquadFilter();
                 trumpetFilter.type = 'lowpass';
                 trumpetFilter.frequency.setValueAtTime(2000, this.audioContext.currentTime);
@@ -386,6 +404,7 @@ class Pitchpipe {
             case 'frenchHorn':
                 oscillator.type = 'triangle';
                 // Warm mellow tone
+                try { oscillator.disconnect(); } catch(e) {}
                 const hornFilter = this.audioContext.createBiquadFilter();
                 hornFilter.type = 'lowpass';
                 hornFilter.frequency.setValueAtTime(1500, this.audioContext.currentTime);
@@ -397,25 +416,11 @@ class Pitchpipe {
                 gainNode.gain.linearRampToValueAtTime(0.2, this.audioContext.currentTime + 0.15);
                 break;
 
-            case 'trombone':
-                oscillator.type = 'sawtooth';
-                // Slide effect capability
-                const tromboneFilter = this.audioContext.createBiquadFilter();
-                tromboneFilter.type = 'lowpass';
-                tromboneFilter.frequency.setValueAtTime(1000, this.audioContext.currentTime);
-                tromboneFilter.Q.setValueAtTime(1.5, this.audioContext.currentTime);
-                oscillator.connect(tromboneFilter);
-                tromboneFilter.connect(gainNode);
-                // Glissando effect
-                const slideTime = this.audioContext.currentTime + 0.1;
-                oscillator.frequency.setValueAtTime(pitch.freq * 0.95, this.audioContext.currentTime);
-                oscillator.frequency.linearRampToValueAtTime(pitch.freq, slideTime);
-                break;
-
             // String Instruments
             case 'guitar':
                 oscillator.type = 'sawtooth';
                 // Plucked string with envelope
+                try { oscillator.disconnect(); } catch(e) {}
                 const guitarFilter = this.audioContext.createBiquadFilter();
                 guitarFilter.type = 'lowpass';
                 guitarFilter.frequency.setValueAtTime(3000, this.audioContext.currentTime);
@@ -429,23 +434,10 @@ class Pitchpipe {
                 gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + guitarDecayTime);
                 break;
 
-            case 'harp':
-                oscillator.type = 'sine';
-                // Soft attack with long decay and resonance
-                const harpFilter = this.audioContext.createBiquadFilter();
-                harpFilter.type = 'bandpass';
-                harpFilter.frequency.setValueAtTime(pitch.freq, this.audioContext.currentTime);
-                harpFilter.Q.setValueAtTime(15, this.audioContext.currentTime);
-                oscillator.connect(harpFilter);
-                harpFilter.connect(gainNode);
-                // Very soft attack
-                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-                gainNode.gain.linearRampToValueAtTime(0.15, this.audioContext.currentTime + 0.3);
-                break;
-
             case 'cello':
                 oscillator.type = 'triangle';
                 // Deep, warm tone with slower vibrato
+                try { oscillator.disconnect(); } catch(e) {}
                 const celloFilter = this.audioContext.createBiquadFilter();
                 celloFilter.type = 'lowpass';
                 celloFilter.frequency.setValueAtTime(800, this.audioContext.currentTime);
@@ -463,27 +455,11 @@ class Pitchpipe {
                 celloVibrato.stop(this.audioContext.currentTime + this.toneDuration);
                 break;
 
-            // Percussion
-            case 'xylophone':
-                oscillator.type = 'square';
-                // Sharp attack with wooden resonance
-                const xyloFilter = this.audioContext.createBiquadFilter();
-                xyloFilter.type = 'bandpass';
-                xyloFilter.frequency.setValueAtTime(pitch.freq * 2, this.audioContext.currentTime);
-                xyloFilter.Q.setValueAtTime(20, this.audioContext.currentTime);
-                oscillator.connect(xyloFilter);
-                xyloFilter.connect(gainNode);
-                // Very sharp attack, quick decay
-                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-                gainNode.gain.linearRampToValueAtTime(0.4, this.audioContext.currentTime + 0.001);
-                const xyloDecayTime = Math.max(0.1, this.toneDuration - 1.5);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + xyloDecayTime);
-                break;
-
             // Electronic
             case 'synthLead':
                 oscillator.type = 'sawtooth';
                 // Modern synth with filter sweeps
+                try { oscillator.disconnect(); } catch(e) {}
                 const synthFilter = this.audioContext.createBiquadFilter();
                 synthFilter.type = 'lowpass';
                 synthFilter.frequency.setValueAtTime(2000, this.audioContext.currentTime);
@@ -497,6 +473,7 @@ class Pitchpipe {
             case '8bit':
                 oscillator.type = 'square';
                 // Retro game sound
+                try { oscillator.disconnect(); } catch(e) {}
                 const bitcrusher = this.audioContext.createScriptProcessor(256, 1, 1);
                 bitcrusher.onaudioprocess = (e) => {
                     const input = e.inputBuffer.getChannelData(0);
@@ -512,6 +489,7 @@ class Pitchpipe {
             case 'wobbleBass':
                 oscillator.type = 'sawtooth';
                 // Dubstep-style wobble
+                try { oscillator.disconnect(); } catch(e) {}
                 const wobbleFilter = this.audioContext.createBiquadFilter();
                 wobbleFilter.type = 'lowpass';
                 wobbleFilter.Q.setValueAtTime(10, this.audioContext.currentTime);
@@ -531,6 +509,7 @@ class Pitchpipe {
             case 'pad':
                 oscillator.type = 'sine';
                 // Ambient synth pad with slow attack
+                try { oscillator.disconnect(); } catch(e) {}
                 const padFilter = this.audioContext.createBiquadFilter();
                 padFilter.type = 'lowpass';
                 padFilter.frequency.setValueAtTime(1500, this.audioContext.currentTime);
@@ -540,37 +519,6 @@ class Pitchpipe {
                 // Very slow attack
                 gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
                 gainNode.gain.linearRampToValueAtTime(0.2, this.audioContext.currentTime + 0.5);
-                break;
-
-            case 'organ':
-                // Drawbar organ with harmonic mixing
-                const organOsc1 = this.audioContext.createOscillator();
-                const organOsc2 = this.audioContext.createOscillator();
-                const organOsc3 = this.audioContext.createOscillator();
-                organOsc1.type = 'sine';
-                organOsc2.type = 'sine';
-                organOsc3.type = 'sine';
-                organOsc1.frequency.setValueAtTime(pitch.freq, this.audioContext.currentTime);
-                organOsc2.frequency.setValueAtTime(pitch.freq * 2, this.audioContext.currentTime);
-                organOsc3.frequency.setValueAtTime(pitch.freq * 3, this.audioContext.currentTime);
-                const organGain1 = this.audioContext.createGain();
-                const organGain2 = this.audioContext.createGain();
-                const organGain3 = this.audioContext.createGain();
-                organGain1.gain.setValueAtTime(0.5, this.audioContext.currentTime);
-                organGain2.gain.setValueAtTime(0.25, this.audioContext.currentTime);
-                organGain3.gain.setValueAtTime(0.125, this.audioContext.currentTime);
-                organOsc1.connect(organGain1);
-                organOsc2.connect(organGain2);
-                organOsc3.connect(organGain3);
-                organGain1.connect(gainNode);
-                organGain2.connect(gainNode);
-                organGain3.connect(gainNode);
-                organOsc1.start();
-                organOsc2.start();
-                organOsc3.start();
-                organOsc1.stop(this.audioContext.currentTime + this.toneDuration);
-                organOsc2.stop(this.audioContext.currentTime + this.toneDuration);
-                organOsc3.stop(this.audioContext.currentTime + this.toneDuration);
                 break;
 
             case 'theremin':
@@ -596,30 +544,10 @@ class Pitchpipe {
                 break;
 
             // World Instruments
-            case 'sitar':
-                oscillator.type = 'sawtooth';
-                // Droning strings with sympathetic resonance
-                const sitarFilter = this.audioContext.createBiquadFilter();
-                sitarFilter.type = 'bandpass';
-                sitarFilter.frequency.setValueAtTime(1000, this.audioContext.currentTime);
-                sitarFilter.Q.setValueAtTime(8, this.audioContext.currentTime);
-                oscillator.connect(sitarFilter);
-                sitarFilter.connect(gainNode);
-                // Add sympathetic strings
-                const sympatheticOsc = this.audioContext.createOscillator();
-                sympatheticOsc.type = 'sine';
-                sympatheticOsc.frequency.setValueAtTime(pitch.freq * 1.01, this.audioContext.currentTime);
-                const sympatheticGain = this.audioContext.createGain();
-                sympatheticGain.gain.setValueAtTime(0.05, this.audioContext.currentTime);
-                sympatheticOsc.connect(sympatheticGain);
-                sympatheticGain.connect(this.audioContext.destination);
-                sympatheticOsc.start();
-                sympatheticOsc.stop(this.audioContext.currentTime + this.toneDuration);
-                break;
-
             case 'didgeridoo':
                 oscillator.type = 'sine';
                 // Low drone with formant filtering
+                try { oscillator.disconnect(); } catch(e) {}
                 const didgeFilter = this.audioContext.createBiquadFilter();
                 didgeFilter.type = 'bandpass';
                 didgeFilter.frequency.setValueAtTime(200, this.audioContext.currentTime);
@@ -636,40 +564,6 @@ class Pitchpipe {
                 formantFilter.connect(gainNode);
                 break;
 
-            case 'bagpipes':
-                // Complex drone with chanter melody
-                const droneOsc = this.audioContext.createOscillator();
-                droneOsc.type = 'sine';
-                droneOsc.frequency.setValueAtTime(pitch.freq * 0.5, this.audioContext.currentTime); // Low drone
-                const droneGain = this.audioContext.createGain();
-                droneGain.gain.setValueAtTime(0.2, this.audioContext.currentTime);
-                droneOsc.connect(droneGain);
-                droneGain.connect(this.audioContext.destination);
-                droneOsc.start();
-                droneOsc.stop(this.audioContext.currentTime + this.toneDuration);
-                // Chanter (main melody)
-                const chanterFilter = this.audioContext.createBiquadFilter();
-                chanterFilter.type = 'bandpass';
-                chanterFilter.frequency.setValueAtTime(1500, this.audioContext.currentTime);
-                chanterFilter.Q.setValueAtTime(5, this.audioContext.currentTime);
-                oscillator.connect(chanterFilter);
-                chanterFilter.connect(gainNode);
-                // Add reedy quality
-                const chanterNoise = this.audioContext.createBufferSource();
-                const chanterBuffer = this.audioContext.createBuffer(1, this.audioContext.sampleRate * 0.05, this.audioContext.sampleRate);
-                const chanterData = chanterBuffer.getChannelData(0);
-                for (let i = 0; i < chanterData.length; i++) {
-                    chanterData[i] = (Math.random() - 0.5) * 0.03;
-                }
-                const chanterNoiseGain = this.audioContext.createGain();
-                chanterNoiseGain.gain.setValueAtTime(0.02, this.audioContext.currentTime);
-                chanterNoise.buffer = chanterBuffer;
-                chanterNoise.connect(chanterNoiseGain);
-                chanterNoiseGain.connect(gainNode);
-                chanterNoise.start();
-                chanterNoise.stop(this.audioContext.currentTime + 0.05);
-                break;
-                
             default:
                 oscillator.type = 'sine';
                 break;
@@ -680,7 +574,7 @@ class Pitchpipe {
         const currentPitch = document.getElementById('currentPitch');
         currentPitch.textContent = 'Error';
         currentPitch.style.color = '#ff6b6b';
-        
+
         const freqDisplay = document.getElementById('frequencyDisplay');
         freqDisplay.textContent = message;
         freqDisplay.style.color = '#ff6b6b';
