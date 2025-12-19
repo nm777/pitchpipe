@@ -2,10 +2,6 @@ import { pitches } from './pitches.js';
 
 class Pitchpipe {
     constructor() {
-        // Create debug overlay first
-        this.createDebugOverlay();
-        this.debugLog('Debug overlay created');
-        
         this.audioContext = null;
         this.currentOscillators = new Map();
         this.autoPlayInterval = null;
@@ -19,9 +15,14 @@ class Pitchpipe {
         this.allPitches = pitches;
         this.currentPitches = this.getPitchesForOctave(this.currentOctave);
 
-        this.debugLog('Initializing pitchpipe...');
         this.init();
-        this.debugLog('Pitchpipe initialized');
+        
+        // Create debug overlay after initialization
+            setTimeout(() => {
+                this.createDebugOverlay();
+                this.setDebugInfo('Audio: Ready');
+                this.debugLog('DEBUG: Ready');
+            }, 500);
     }
 
     init() {
@@ -136,15 +137,18 @@ class Pitchpipe {
 
     async playPitch(pitch, button) {
         this.debugLog(`playPitch: ${pitch.note}, AudioContext: ${this.audioContext?.state || 'null'}`);
+        this.setDebugInfo(`Audio: ${this.audioContext?.state || 'null'}`);
         
         // Initialize AudioContext if not already done
         if (!this.audioContext) {
             this.initAudio();
             this.debugLog('AudioContext created');
+            this.setDebugInfo('Audio: Created');
         }
         
         if (!this.audioContext) {
             this.debugLog('ERROR: No AudioContext');
+            this.setDebugInfo('Audio: ERROR');
             return;
         }
 
@@ -152,10 +156,13 @@ class Pitchpipe {
         if (this.audioContext.state === 'suspended') {
             try {
                 this.debugLog('Resuming AudioContext...');
+                this.setDebugInfo('Audio: Resuming...');
                 await this.audioContext.resume();
                 this.debugLog('AudioContext resumed');
+                this.setDebugInfo('Audio: Running');
             } catch (error) {
                 this.debugLog(`ERROR: ${error.message}`);
+                this.setDebugInfo(`Audio: ERROR`);
                 return;
             }
         }
@@ -598,6 +605,14 @@ class Pitchpipe {
     }
 
     createDebugOverlay() {
+        console.log('Creating debug overlay...');
+        
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.createDebugOverlay());
+            return;
+        }
+        
         const debugDiv = document.createElement('div');
         debugDiv.id = 'debugOverlay';
         debugDiv.style.cssText = `
@@ -615,17 +630,39 @@ class Pitchpipe {
             border: 2px solid yellow !important;
             box-shadow: 0 0 10px rgba(255,255,0,0.8) !important;
         `;
-        document.body.appendChild(debugDiv);
+        
+        // Try to append to body
+        try {
+            document.body.appendChild(debugDiv);
+            console.log('Debug overlay appended to body');
+        } catch (error) {
+            console.error('Failed to append debug overlay:', error);
+        }
+        
+        // Make sure it's actually in the DOM
+        setTimeout(() => {
+            const element = document.getElementById('debugOverlay');
+            console.log('Debug overlay in DOM:', !!element);
+            if (element) {
+                const rect = element.getBoundingClientRect();
+                console.log('Debug overlay rect:', rect);
+            }
+        }, 100);
         
         this.debugLog = (message) => {
-            console.log(message);
-            debugDiv.innerHTML += `<div style="margin: 2px 0; border-bottom: 1px solid #666;">${new Date().toLocaleTimeString()}: ${message}</div>`;
-            // Keep only last 8 messages
-            const logs = debugDiv.children;
-            if (logs.length > 8) {
-                debugDiv.removeChild(logs[0]);
+            console.log('DEBUG:', message);
+            const debugDiv = document.getElementById('debugOverlay');
+            if (debugDiv) {
+                debugDiv.innerHTML += `<div style="margin: 2px 0; border-bottom: 1px solid #666;">${new Date().toLocaleTimeString()}: ${message}</div>`;
+                // Keep only last 8 messages
+                const logs = debugDiv.children;
+                if (logs.length > 8) {
+                    debugDiv.removeChild(logs[0]);
+                }
+                debugDiv.scrollTop = debugDiv.scrollHeight;
+            } else {
+                console.error('Debug overlay not found!');
             }
-            debugDiv.scrollTop = debugDiv.scrollHeight;
         };
     }
 
@@ -637,6 +674,13 @@ class Pitchpipe {
         const freqDisplay = document.getElementById('frequencyDisplay');
         freqDisplay.textContent = message;
         freqDisplay.style.color = '#ff6b6b';
+    }
+
+    setDebugInfo(message) {
+        const versionDisplay = document.getElementById('versionDisplay');
+        if (versionDisplay) {
+            versionDisplay.innerHTML = `${versionDisplay.textContent} | ${message}`;
+        }
     }
 }
 
