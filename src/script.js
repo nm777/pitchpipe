@@ -178,8 +178,6 @@ class Pitchpipe {
             return;
         }
 
-
-
         const oscillator = this.audioContext.createOscillator();
         const gainNode = this.audioContext.createGain();
 
@@ -241,6 +239,7 @@ class Pitchpipe {
 
             if (button) {
                 button.classList.remove('playing');
+            }
         }
     }
 
@@ -621,74 +620,6 @@ class Pitchpipe {
                 oscillator.type = 'sine';
                 break;
         }
-    }
-
-
-
-        const debugDiv = document.createElement('div');
-        debugDiv.id = 'debugOverlay';
-
-        // Use individual style assignments for better mobile compatibility
-        debugDiv.style.position = 'fixed';
-        debugDiv.style.top = '5px';
-        debugDiv.style.left = '5px'; // Changed from right for better mobile visibility
-        debugDiv.style.background = 'rgba(255,0,0,0.95)';
-        debugDiv.style.color = 'white';
-        debugDiv.style.padding = '8px';
-        debugDiv.style.fontFamily = 'monospace';
-        debugDiv.style.fontSize = '11px';
-        debugDiv.style.zIndex = '999999';
-        debugDiv.style.maxWidth = '200px';
-        debugDiv.style.borderRadius = '4px';
-        debugDiv.style.border = '2px solid yellow';
-        debugDiv.style.boxShadow = '0 2px 8px rgba(0,0,0,0.5)';
-        debugDiv.style.lineHeight = '1.2';
-        debugDiv.style.webkitTransform = 'translateZ(0)'; // Force hardware acceleration
-        debugDiv.style.pointerEvents = 'none'; // Don't interfere with touches
-
-        // Try to append to body
-        try {
-            document.body.appendChild(debugDiv);
-            console.log('Debug overlay appended to body');
-        } catch (error) {
-            console.error('Failed to append debug overlay:', error);
-        }
-
-        // Make sure it's actually in the DOM
-        setTimeout(() => {
-            const element = document.getElementById('debugOverlay');
-            console.log('Debug overlay in DOM:', !!element);
-            if (element) {
-                const rect = element.getBoundingClientRect();
-                console.log('Debug overlay rect:', rect);
-            }
-        }, 100);
-
-        this.debugLog = (message) => {
-            console.log('DEBUG:', message);
-            const debugDiv = document.getElementById('debugOverlay');
-            if (debugDiv) {
-            debugDiv.innerHTML += `<div style="margin: 1px 0; font-size: 10px; border-bottom: 1px solid rgba(255,255,255,0.3);">${new Date().toLocaleTimeString()}: ${message}</div>`;
-            // Keep only last 6 messages to save space on mobile
-            const logs = debugDiv.children;
-            if (logs.length > 6) {
-                debugDiv.removeChild(logs[0]);
-            }
-                debugDiv.scrollTop = debugDiv.scrollHeight;
-            } else {
-                console.error('Debug overlay not found!');
-            }
-        };
-    }
-
-    showError(message) {
-        const currentPitch = document.getElementById('currentPitch');
-        currentPitch.textContent = 'Error';
-        currentPitch.style.color = '#ff6b6b';
-
-        const freqDisplay = document.getElementById('frequencyDisplay');
-        freqDisplay.textContent = message;
-        freqDisplay.style.color = '#ff6b6b';
     }
 }
 
