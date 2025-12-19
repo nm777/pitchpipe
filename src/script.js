@@ -20,7 +20,7 @@ class Pitchpipe {
         // Create debug overlay after initialization
             setTimeout(() => {
                 this.createDebugOverlay();
-                this.setDebugInfo('Audio: Ready');
+                this.setDebugInfo('Ready');
                 this.debugLog('DEBUG: Ready');
             }, 500);
     }
@@ -99,15 +99,23 @@ class Pitchpipe {
         // Initialize and resume audio context on user interaction (required by iOS)
         const resumeAudio = async () => {
             try {
+                this.setDebugInfo('User interaction detected');
+                this.debugLog('User interaction - starting audio init');
+                
                 if (!this.audioContext) {
                     // Only create AudioContext now, in response to user interaction
                     window.AudioContext = window.AudioContext || window.webkitAudioContext;
                     this.audioContext = new AudioContext();
                     this.debugLog('AudioContext created on user interaction');
+                    this.setDebugInfo('Audio: Created');
                 }
+                
+                this.debugLog(`AudioContext state: ${this.audioContext.state}`);
+                this.setDebugInfo(`Audio: ${this.audioContext.state}`);
                 
                 if (this.audioContext.state === 'suspended') {
                     this.debugLog('Resuming from user interaction...');
+                    this.setDebugInfo('Audio: Resuming...');
                     await this.audioContext.resume();
                     this.debugLog('AudioContext resumed from user interaction');
                     this.setDebugInfo('Audio: Running');
@@ -117,7 +125,7 @@ class Pitchpipe {
                 }
             } catch (error) {
                 this.debugLog(`ERROR: ${error.message}`);
-                this.setDebugInfo('Audio: ERROR');
+                this.setDebugInfo(`ERROR: ${error.message}`);
             }
         };
 
@@ -679,12 +687,39 @@ class Pitchpipe {
     }
 
     setDebugInfo(message) {
+        // Try multiple elements for mobile compatibility
         const versionDisplay = document.getElementById('versionDisplay');
+        const currentPitch = document.getElementById('currentPitch');
+        const subtitle = document.querySelector('.subtitle');
+        
+        // Update version display
         if (versionDisplay) {
-            // Make the debug info very visible
             versionDisplay.style.color = message.includes('ERROR') ? 'red' : 'orange';
             versionDisplay.style.fontWeight = 'bold';
-            versionDisplay.innerHTML = `${versionDisplay.textContent.replace(/\s*\|.*$/, '')} | ${message}`;
+            versionDisplay.style.fontSize = '12px';
+            versionDisplay.innerHTML = `v1.0.1 | ${message}`;
+        }
+        
+        // Also update the subtitle as a backup
+        if (subtitle) {
+            if (message.includes('ERROR')) {
+                subtitle.textContent = `AUDIO ERROR: ${message}`;
+                subtitle.style.color = 'red';
+                subtitle.style.fontWeight = 'bold';
+            } else if (message.includes('Running')) {
+                subtitle.textContent = 'Audio working ✓';
+                subtitle.style.color = 'green';
+            } else {
+                subtitle.textContent = `Audio: ${message}`;
+                subtitle.style.color = 'orange';
+            }
+        }
+        
+        // Also use current pitch for critical errors
+        if (currentPitch && message.includes('ERROR')) {
+            currentPitch.textContent = 'AUDIO ERROR';
+            currentPitch.style.color = 'red';
+            currentPitch.style.fontSize = '16px';
         }
     }
 }
