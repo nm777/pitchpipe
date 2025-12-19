@@ -1,6 +1,6 @@
 {
   "name": "pitchpipe",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A web-based pitchpipe application",
   "type": "module",
   "main": "src/index.js",
@@ -8,7 +8,6 @@
     "dev": "wrangler dev",
     "build": "node build.js",
     "deploy": "npm run build && wrangler deploy",
-    "version": "node version.js",
     "release": "npm run version && npm run build && git add . && git commit -m \"release v$(node -p \"require('./package.json').version\")\" && git push"
   },
   "devDependencies": {
