@@ -614,21 +614,24 @@ class Pitchpipe {
         
         const debugDiv = document.createElement('div');
         debugDiv.id = 'debugOverlay';
-        debugDiv.style.cssText = `
-            position: fixed !important;
-            top: 10px !important;
-            right: 10px !important;
-            background: rgba(255,0,0,0.9) !important;
-            color: white !important;
-            padding: 10px !important;
-            font-family: monospace !important;
-            font-size: 12px !important;
-            z-index: 9999 !important;
-            max-width: 250px !important;
-            border-radius: 5px !important;
-            border: 2px solid yellow !important;
-            box-shadow: 0 0 10px rgba(255,255,0,0.8) !important;
-        `;
+        
+        // Use individual style assignments for better mobile compatibility
+        debugDiv.style.position = 'fixed';
+        debugDiv.style.top = '5px';
+        debugDiv.style.left = '5px'; // Changed from right for better mobile visibility
+        debugDiv.style.background = 'rgba(255,0,0,0.95)';
+        debugDiv.style.color = 'white';
+        debugDiv.style.padding = '8px';
+        debugDiv.style.fontFamily = 'monospace';
+        debugDiv.style.fontSize = '11px';
+        debugDiv.style.zIndex = '999999';
+        debugDiv.style.maxWidth = '200px';
+        debugDiv.style.borderRadius = '4px';
+        debugDiv.style.border = '2px solid yellow';
+        debugDiv.style.boxShadow = '0 2px 8px rgba(0,0,0,0.5)';
+        debugDiv.style.lineHeight = '1.2';
+        debugDiv.style.webkitTransform = 'translateZ(0)'; // Force hardware acceleration
+        debugDiv.style.pointerEvents = 'none'; // Don't interfere with touches
         
         // Try to append to body
         try {
@@ -652,12 +655,12 @@ class Pitchpipe {
             console.log('DEBUG:', message);
             const debugDiv = document.getElementById('debugOverlay');
             if (debugDiv) {
-                debugDiv.innerHTML += `<div style="margin: 2px 0; border-bottom: 1px solid #666;">${new Date().toLocaleTimeString()}: ${message}</div>`;
-                // Keep only last 8 messages
-                const logs = debugDiv.children;
-                if (logs.length > 8) {
-                    debugDiv.removeChild(logs[0]);
-                }
+            debugDiv.innerHTML += `<div style="margin: 1px 0; font-size: 10px; border-bottom: 1px solid rgba(255,255,255,0.3);">${new Date().toLocaleTimeString()}: ${message}</div>`;
+            // Keep only last 6 messages to save space on mobile
+            const logs = debugDiv.children;
+            if (logs.length > 6) {
+                debugDiv.removeChild(logs[0]);
+            }
                 debugDiv.scrollTop = debugDiv.scrollHeight;
             } else {
                 console.error('Debug overlay not found!');
@@ -678,7 +681,10 @@ class Pitchpipe {
     setDebugInfo(message) {
         const versionDisplay = document.getElementById('versionDisplay');
         if (versionDisplay) {
-            versionDisplay.innerHTML = `${versionDisplay.textContent} | ${message}`;
+            // Make the debug info very visible
+            versionDisplay.style.color = message.includes('ERROR') ? 'red' : 'orange';
+            versionDisplay.style.fontWeight = 'bold';
+            versionDisplay.innerHTML = `${versionDisplay.textContent.replace(/\s*\|.*$/, '')} | ${message}`;
         }
     }
 }
