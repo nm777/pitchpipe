@@ -2,6 +2,10 @@ import { pitches } from './pitches.js';
 
 class Pitchpipe {
     constructor() {
+        // Create debug overlay first
+        this.createDebugOverlay();
+        this.debugLog('Debug overlay created');
+        
         this.audioContext = null;
         this.currentOscillators = new Map();
         this.autoPlayInterval = null;
@@ -14,11 +18,10 @@ class Pitchpipe {
 
         this.allPitches = pitches;
         this.currentPitches = this.getPitchesForOctave(this.currentOctave);
-        
-        // Add debug overlay for iOS testing
-        this.createDebugOverlay();
 
+        this.debugLog('Initializing pitchpipe...');
         this.init();
+        this.debugLog('Pitchpipe initialized');
     }
 
     init() {
@@ -598,28 +601,31 @@ class Pitchpipe {
         const debugDiv = document.createElement('div');
         debugDiv.id = 'debugOverlay';
         debugDiv.style.cssText = `
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.8);
-            color: #00ff00;
-            padding: 10px;
-            font-family: monospace;
-            font-size: 12px;
-            z-index: 1000;
-            max-width: 200px;
-            border-radius: 5px;
+            position: fixed !important;
+            top: 10px !important;
+            right: 10px !important;
+            background: rgba(255,0,0,0.9) !important;
+            color: white !important;
+            padding: 10px !important;
+            font-family: monospace !important;
+            font-size: 12px !important;
+            z-index: 9999 !important;
+            max-width: 250px !important;
+            border-radius: 5px !important;
+            border: 2px solid yellow !important;
+            box-shadow: 0 0 10px rgba(255,255,0,0.8) !important;
         `;
         document.body.appendChild(debugDiv);
         
         this.debugLog = (message) => {
             console.log(message);
-            debugDiv.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
-            // Keep only last 5 messages
+            debugDiv.innerHTML += `<div style="margin: 2px 0; border-bottom: 1px solid #666;">${new Date().toLocaleTimeString()}: ${message}</div>`;
+            // Keep only last 8 messages
             const logs = debugDiv.children;
-            if (logs.length > 5) {
+            if (logs.length > 8) {
                 debugDiv.removeChild(logs[0]);
             }
+            debugDiv.scrollTop = debugDiv.scrollHeight;
         };
     }
 
