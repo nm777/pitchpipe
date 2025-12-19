@@ -14,6 +14,9 @@ class Pitchpipe {
 
         this.allPitches = pitches;
         this.currentPitches = this.getPitchesForOctave(this.currentOctave);
+        
+        // Add debug overlay for iOS testing
+        this.createDebugOverlay();
 
         this.init();
     }
@@ -94,16 +97,18 @@ class Pitchpipe {
             try {
                 // Initialize AudioContext if not already done
                 this.initAudio();
+                this.debugLog('User interaction - AudioContext initialized');
                 
                 if (this.audioContext && this.audioContext.state === 'suspended') {
+                    this.debugLog('Resuming from user interaction...');
                     await this.audioContext.resume();
-                    console.log('AudioContext resumed');
+                    this.debugLog('AudioContext resumed from user interaction');
                     // Remove event listeners after successful resume
                     document.removeEventListener('click', resumeAudio);
                     document.removeEventListener('touchstart', resumeAudio);
                 }
             } catch (error) {
-                console.error('Failed to initialize or resume AudioContext:', error);
+                this.debugLog(`ERROR: ${error.message}`);
             }
         };
 
@@ -127,26 +132,27 @@ class Pitchpipe {
     }
 
     async playPitch(pitch, button) {
-        console.log('playPitch called for:', pitch.note, 'AudioContext state:', this.audioContext?.state);
+        this.debugLog(`playPitch: ${pitch.note}, AudioContext: ${this.audioContext?.state || 'null'}`);
         
         // Initialize AudioContext if not already done
         if (!this.audioContext) {
             this.initAudio();
+            this.debugLog('AudioContext created');
         }
         
         if (!this.audioContext) {
-            console.error('No AudioContext available');
+            this.debugLog('ERROR: No AudioContext');
             return;
         }
 
         // Ensure audio context is running
         if (this.audioContext.state === 'suspended') {
             try {
-                console.log('Attempting to resume AudioContext...');
+                this.debugLog('Resuming AudioContext...');
                 await this.audioContext.resume();
-                console.log('AudioContext resumed in playPitch');
+                this.debugLog('AudioContext resumed');
             } catch (error) {
-                console.error('Failed to resume AudioContext in playPitch:', error);
+                this.debugLog(`ERROR: ${error.message}`);
                 return;
             }
         }
@@ -586,6 +592,35 @@ class Pitchpipe {
                 oscillator.type = 'sine';
                 break;
         }
+    }
+
+    createDebugOverlay() {
+        const debugDiv = document.createElement('div');
+        debugDiv.id = 'debugOverlay';
+        debugDiv.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: #00ff00;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 1000;
+            max-width: 200px;
+            border-radius: 5px;
+        `;
+        document.body.appendChild(debugDiv);
+        
+        this.debugLog = (message) => {
+            console.log(message);
+            debugDiv.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
+            // Keep only last 5 messages
+            const logs = debugDiv.children;
+            if (logs.length > 5) {
+                debugDiv.removeChild(logs[0]);
+            }
+        };
     }
 
     showError(message) {
