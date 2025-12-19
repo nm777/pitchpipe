@@ -2,12 +2,9 @@ import { pitches } from './pitches.js';
 
 class Pitchpipe {
     constructor() {
-        // Create debug overlay first
-        this.createDebugOverlay();
-        this.debugLog('Debug overlay created');
-        
         this.audioContext = null;
-        this.audioInitializing = false; // Prevent race conditions
+        this.touchedElement = null;
+        this.touchTimeout = null;
         this.currentOscillators = new Map();
         this.autoPlayInterval = null;
         this.currentAutoPlayIndex = 0;
@@ -20,16 +17,13 @@ class Pitchpipe {
         this.allPitches = pitches;
         this.currentPitches = this.getPitchesForOctave(this.currentOctave);
 
-        this.debugLog('Initializing pitchpipe...');
         this.init();
-        this.debugLog('Pitchpipe initialized');
     }
 
     init() {
         this.createPitchButtons();
         this.setupEventListeners();
         this.updateOctaveDisplay();
-        // Don't initialize AudioContext immediately on iOS - wait for user interaction
     }
 
     initAudio() {
@@ -60,9 +54,27 @@ class Pitchpipe {
             button.dataset.freq = pitch.freq;
             button.dataset.index = index;
 
-            button.addEventListener('click', () => this.togglePitch(pitch, button));
+            button.addEventListener('click', (e) => {
+                // Prevent click event if this was already handled as touch
+                if (this.touchedElement === button) {
+                    e.preventDefault();
+                    return;
+                }
+                this.togglePitch(pitch, button);
+            });
+            
             button.addEventListener('touchstart', (e) => {
-                e.preventDefault();
+                // Mark this element as touched and clear any existing timeout
+                this.touchedElement = button;
+                if (this.touchTimeout) {
+                    clearTimeout(this.touchTimeout);
+                }
+                
+                // Clear the touched element after a short delay
+                this.touchTimeout = setTimeout(() => {
+                    this.touchedElement = null;
+                }, 500);
+                
                 this.togglePitch(pitch, button);
             });
 
@@ -85,63 +97,60 @@ class Pitchpipe {
         durationSlider.addEventListener('input', (e) => {
             this.toneDuration = parseInt(e.target.value);
             durationValue.textContent = `${this.toneDuration}s`;
-            console.log('Duration changed to:', this.toneDuration);
         });
 
         const soundSelector = document.getElementById('soundSelector');
         soundSelector.addEventListener('change', (e) => {
             this.soundType = e.target.value;
-            console.log('Sound type changed to:', this.soundType);
             // Stop all currently playing notes to apply new sound type
             this.stopAll();
         });
 
-        // Initialize and resume audio context on user interaction (required by iOS)
-        const resumeAudio = async () => {
-            // Prevent multiple simultaneous initializations
-            if (this.audioInitializing) {
-                this.debugLog('Audio initialization already in progress');
+        // Track touched element to prevent duplicate events
+        this.touchedElement = null;
+        this.touchTimeout = null;
+
+        // Single unified handler for first interaction and audio initialization
+        const handleFirstInteraction = async (e) => {
+            if (this.audioContext && this.audioContext.state === 'running') {
+                // Audio is ready, let normal handlers process the event
                 return;
             }
             
-            this.audioInitializing = true;
+            // Prevent normal event processing while we initialize
+            e.stopPropagation();
+            e.preventDefault();
             
             try {
-                this.setDebugInfo('User interaction detected');
-                this.debugLog('User interaction - starting audio init');
+                // Create AudioContext in response to user gesture (required by iOS)
+                window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.audioContext = new AudioContext();
                 
-                if (!this.audioContext) {
-                    // Only create AudioContext now, in response to user interaction
-                    window.AudioContext = window.AudioContext || window.webkitAudioContext;
-                    this.audioContext = new AudioContext();
-                    this.debugLog('AudioContext created on user interaction');
-                    this.setDebugInfo('Audio: Created');
+                // Resume in same gesture (iOS requirement)
+                await this.audioContext.resume();
+                
+                // Remove this handler after successful initialization
+                document.removeEventListener('click', handleFirstInteraction, true);
+                document.removeEventListener('touchstart', handleFirstInteraction, true);
+                
+                // Now manually trigger the intended action
+                if (e.target.classList.contains('pitch-btn')) {
+                    const note = e.target.dataset.note;
+                    const pitch = this.currentPitches.find(p => p.note === note);
+                    if (pitch) {
+                        // Use togglePitch to maintain proper state management
+                        this.togglePitch(pitch, e.target);
+                    }
                 }
                 
-                this.debugLog(`AudioContext state: ${this.audioContext.state}`);
-                this.setDebugInfo(`Audio: ${this.audioContext.state}`);
-                
-                if (this.audioContext.state === 'suspended') {
-                    this.debugLog('Resuming from user interaction...');
-                    this.setDebugInfo('Audio: Resuming...');
-                    await this.audioContext.resume();
-                    this.debugLog('AudioContext resumed from user interaction');
-                    this.setDebugInfo('Audio: Running');
-                    // Remove event listeners after successful resume
-                    document.removeEventListener('click', resumeAudio);
-                    document.removeEventListener('touchstart', resumeAudio);
-                }
             } catch (error) {
-                this.debugLog(`ERROR: ${error.message}`);
-                this.setDebugInfo(`ERROR: ${error.message}`);
-            } finally {
-                this.audioInitializing = false;
+                console.error('Audio initialization error:', error);
             }
         };
 
-        // Try to initialize and resume on any user interaction until successful
-        document.addEventListener('click', resumeAudio, { capture: true });
-        document.addEventListener('touchstart', resumeAudio, { capture: true });
+        // Single handler that captures BEFORE normal event handlers
+        document.addEventListener('click', handleFirstInteraction, true);
+        document.addEventListener('touchstart', handleFirstInteraction, true);
     }
 
     togglePitch(pitch, button) {
@@ -159,48 +168,17 @@ class Pitchpipe {
     }
 
     async playPitch(pitch, button) {
-        this.debugLog(`playPitch: ${pitch.note}, AudioContext: ${this.audioContext?.state || 'null'}`);
-        this.setDebugInfo(`Audio: ${this.audioContext?.state || 'null'}`);
-        
-        // Wait for audio initialization to complete if in progress
-        if (this.audioInitializing) {
-            this.debugLog('Waiting for audio initialization...');
-            this.setDebugInfo('Audio: Initializing...');
-            // Wait up to 2 seconds for initialization
-            let attempts = 0;
-            while (this.audioInitializing && attempts < 20) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                attempts++;
-            }
-            this.debugLog(`Finished waiting, audioInitializing: ${this.audioInitializing}`);
-        }
-        
-        // AudioContext should already be created by user interaction
+        // AudioContext must already be initialized by user interaction
         if (!this.audioContext) {
-            this.debugLog('ERROR: AudioContext not created yet');
-            this.setDebugInfo('Audio: ERROR - Try Again');
             return;
         }
 
-        // Ensure audio context is running
-        if (this.audioContext.state === 'suspended') {
-            try {
-                this.debugLog('Resuming AudioContext...');
-                this.setDebugInfo('Audio: Resuming...');
-                await this.audioContext.resume();
-                this.debugLog('AudioContext resumed');
-                this.setDebugInfo('Audio: Running');
-                // Small delay to ensure AudioContext is fully ready on iOS
-                await new Promise(resolve => setTimeout(resolve, 100));
-            } catch (error) {
-                this.debugLog(`ERROR: ${error.message}`);
-                this.setDebugInfo(`Audio: ERROR`);
-                return;
-            }
+        // AudioContext should be running if properly initialized
+        if (this.audioContext.state !== 'running') {
+            return;
         }
 
-        console.log('Playing pitch with duration:', this.toneDuration, 'and sound type:', this.soundType);
-        console.log('Current soundType value:', this.soundType);
+
 
         const oscillator = this.audioContext.createOscillator();
         const gainNode = this.audioContext.createGain();
@@ -248,6 +226,7 @@ class Pitchpipe {
         if (oscData && this.audioContext) {
             const { oscillator, gainNode } = oscData;
 
+            // Immediate fade out
             gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
 
             setTimeout(() => {
@@ -326,7 +305,6 @@ class Pitchpipe {
     }
 
     setSoundType(oscillator, gainNode, pitch) {
-        console.log('setSoundType called with soundType:', this.soundType);
 
         // Helper function to disconnect default connection and create new one
         const connectWithFilter = (oscillator, filter, gainNode) => {
@@ -636,14 +614,7 @@ class Pitchpipe {
         }
     }
 
-    createDebugOverlay() {
-        console.log('Creating debug overlay...');
 
-        // Wait for DOM to be ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => this.createDebugOverlay());
-            return;
-        }
 
         const debugDiv = document.createElement('div');
         debugDiv.id = 'debugOverlay';
